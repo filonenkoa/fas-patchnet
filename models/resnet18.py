@@ -1,15 +1,15 @@
+from box import Box
 import torch
 from torch import nn
 from torchvision import models
+from base_model import BaseModel
 
-class FeatureExtractor(nn.Module):
-    
-    def __init__(self, pretrained=True, device='cpu'):
-        super(FeatureExtractor, self).__init__()
-        base_model = models.resnet18(pretrained=pretrained)
+
+class FeatureExtractor(BaseModel):
+    def __init__(self, config: Box):
+        super().__init__(config=config)
+        base_model = models.resnet18(pretrained=self.config.model.pretrained)
         self.nets = nn.Sequential(*(list(base_model.children())[:-1]))
-        self.device = device
         
     def forward(self, x):
-        x = x.to(self.device)
         return self.nets(x)

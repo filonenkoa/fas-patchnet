@@ -1,6 +1,8 @@
-class BaseTrainer():
-    def __init__(self, cfg, network, optimizer, loss, lr_scheduler, device, trainloader, valloader, writer):
-        self.cfg = cfg
+from abc import ABCMeta, abstractmethod
+
+class BaseTrainer(metaclass=ABCMeta):
+    def __init__(self, config, network, optimizer, loss, lr_scheduler, device, trainloader, valloader, writer):
+        self.config = config
         self.network = network
         self.optimizer = optimizer
         self.loss = loss
@@ -10,22 +12,18 @@ class BaseTrainer():
         self.valloader = valloader
         self.writer = writer
 
-    
-    def load_model(self):
-        raise NotImplementedError
-
-
+    @abstractmethod
     def save_model(self):
         raise NotImplementedError
 
-
+    @abstractmethod
     def train_one_epoch(self):
         raise NotImplementedError
 
-
+    @abstractmethod
     def train(self):
         raise NotImplementedError
 
-
+    @abstractmethod
     def validate(self):
         raise NotImplementedError

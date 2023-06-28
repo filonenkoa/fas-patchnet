@@ -1,5 +1,6 @@
 
 import math
+from box import Box
 
 import torch
 import torch.nn.functional as F
@@ -368,15 +369,12 @@ class DC_CDN(nn.Module):
 
 
 class FeatureExtractor(nn.Module):
-    
-    def __init__(self, pretrained=True, device='cpu'):
-        super(FeatureExtractor, self).__init__()
+    def __init__(self, config: Box):
+        super().__init__(config=config)
         self.nets = DC_CDN()
         self.avgpool = nn.AdaptiveAvgPool2d(output_size=1)
-        self.device = device
         
     def forward(self, x):
-        x = x.to(self.device)
         _, x_concat = self.nets(x)
         out = self.avgpool(x_concat)
         return out

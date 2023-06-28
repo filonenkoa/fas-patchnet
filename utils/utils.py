@@ -1,3 +1,4 @@
+from box import Box
 import torch.nn.functional as F
 from scipy.optimize import brentq
 from scipy.interpolate import interp1d
@@ -8,8 +9,6 @@ import yaml
 from torch import optim
 import torch.distributed as dist
 import cv2
-
-from models.resnet18 import FeatureExtractor
 
 
 def calc_acc(pred, target):
@@ -42,30 +41,17 @@ def compute_eer(labels, scores):
     return eer, thresh
 
 
-def read_cfg(cfg_file):
+def read_cfg(cfg_file: str) -> Box:
     """
     Read configurations from yaml file
     Args:
         cfg_file (.yaml): path to cfg yaml
     Returns:
-        (dict): configuration in dict
+        (Box): configuration in Box dict wrapper
     """
     with open(cfg_file, 'r') as rf:
         cfg = yaml.safe_load(rf)
-        return cfg
-
-
-def get_optimizer(cfg, network):
-
-    optimizer = None
-    if cfg['train']['optimizer'] == 'adam':
-        optimizer = optim.Adam(network.parameters(), lr=cfg['train']['lr'])
-    elif cfg['train']['optimizer'] == 'SGD':
-        optimizer = optim.SGD(network.parameters(), lr=cfg['train']['lr'])
-    else:
-        raise NotImplementedError
-
-    return optimizer
+        return Box(cfg)
 
 
 def get_device(cfg):
@@ -77,17 +63,6 @@ def get_device(cfg):
     else:
         raise NotImplementedError
     return device
-
-
-def build_network(cfg, device):
-    network = None
-
-    if cfg['model']['base'] is not None:
-        network = FeatureExtractor(pretrained=cfg['model']['pretrained'], device=device)
-    else:
-        raise NotImplementedError
-
-    return network
 
 
 def is_dist_avail_and_initialized():
