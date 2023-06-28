@@ -1,0 +1,3 @@
+[submodule "modules/efficientformer"]
+	path = modules/efficientformer
+	url = https://github.com/snap-research/EfficientFormer.git
