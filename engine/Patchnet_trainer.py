@@ -28,7 +28,6 @@ class Trainer(BaseTrainer):
                  config: Box,
                  network: Module,
                  optimizer: torch.optim.Optimizer,
-                 loss: Module,
                  lr_scheduler: torch.optim.lr_scheduler.LRScheduler,
                  is_batch_scheduler: bool,
                  device: torch.device,
@@ -36,7 +35,7 @@ class Trainer(BaseTrainer):
                  valloader: DataLoader,
                  writer: SummaryWriter,
                  start_epoch: int = 0):
-        super().__init__(config, network, optimizer, loss, lr_scheduler, is_batch_scheduler, device, trainloader, valloader, writer)
+        super().__init__(config, network, optimizer, lr_scheduler, is_batch_scheduler, device, trainloader, valloader, writer)
         # self.network = self.network.to(device)
         
         self.train_loss_metric = AvgMeter(writer=writer, name='Loss/train', num_iter_per_epoch=len(self.trainloader), per_iter_vis=True)
@@ -63,7 +62,7 @@ class Trainer(BaseTrainer):
             'model': model.state_dict(),
             'optimizer': self.optimizer.state_dict(),
             "scheduler": self.lr_scheduler.state_dict(),
-            "loss": self.loss.state_dict(),
+            # "loss": self.loss.state_dict(),
             "val_loss": self.val_loss_metric.avg,
             "val_acc": self.val_acc_metric.avg
         }
@@ -103,15 +102,16 @@ class Trainer(BaseTrainer):
             if self.lr_scheduler is not None and self.is_batch_scheduler:
                 self.lr_scheduler.step(epoch + (batch_index / max_num_batches))
             img1, img2, label = img1.to(self.device), img2.to(self.device), label.to(self.device)
-            feature1 = self.network(img1)
-            feature2 = self.network(img2)
+            model = self.network.module if dist.is_initialized() else self.network
+            feature1 = model.get_descriptors(img1)
+            feature2 = model.get_descriptors(img2)
             self.optimizer.zero_grad()
-            loss = self.loss(feature1, feature2, label)
+            loss = model.compute_loss(feature1, feature2, label)
             loss.backward()
             self.optimizer.step()
 
-            score1 = F.softmax(self.loss.amsm_loss.s * self.loss.amsm_loss.fc(feature1.squeeze()), dim=1)
-            score2 = F.softmax(self.loss.amsm_loss.s * self.loss.amsm_loss.fc(feature2.squeeze()), dim=1)
+            score1 = model.predict(feature1)
+            score2 = model.predict(feature2)
             
             label_squeezed = label.squeeze().type(torch.int8)
 
@@ -208,11 +208,12 @@ class Trainer(BaseTrainer):
         with torch.no_grad():
             for (img1, img2, label) in tqdm(self.valloader, desc=f"Validating epoch {epoch}"):
                 img1, img2, label = img1.to(self.device), img2.to(self.device), label.to(self.device)
-                feature1 = self.network(img1)
-                feature2 = self.network(img2)
-                loss = self.loss(feature1, feature2, label)
+                model = self.network.module if dist.is_initialized() else self.network
+                feature1 = model.get_descriptors(img1)
+                feature2 = model.get_descriptors(img2)
+                loss = model.compute_loss(feature1, feature2, label)
 
-                score1 = F.softmax(self.loss.amsm_loss.s * self.loss.amsm_loss.fc(feature1.squeeze()), dim=1)
+                score1 = model.predict(feature1)
                 # score2 = F.softmax(self.loss.amsm_loss.s * self.loss.amsm_loss.fc(feature2.squeeze()), dim=1)
                 
                 label_squeezed = label.squeeze().type(torch.int8)
@@ -229,6 +230,7 @@ class Trainer(BaseTrainer):
                 # Update metrics
                 self.val_loss_metric.update(loss.item())
                 self.val_acc_metric.update(accuracy)
+
         if self.config.world_rank == 0:
             metrics = self.metrics_counter(prediction_counters_epoch)
             logger.info("\nValidation epoch {} =============================".format(epoch))

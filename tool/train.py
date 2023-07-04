@@ -213,20 +213,12 @@ def main() -> None:
     
     # build model and engine
     state_dict = load_checkpoint(config)
-    model_state_dict =  state_dict["model"] if "model" in state_dict.keys() else None
-    model = build_network(config, model_state_dict)
+    # model_state_dict =  state_dict["model"] if "model" in state_dict.keys() else None
+    model = build_network(config, state_dict)
     model.to(config.device)
     optimizer = get_optimizer(config, model, state_dict.get("optimizer"))
     lr_scheduler, is_batch_scheduler = init_scheduler(config, optimizer, state_dict.get("scheduler"))
-    criterion = PatchLoss(alpha1=config.loss.alpha1,
-                          alpha2=config.loss.alpha2,
-                          s=config.loss.s,
-                          m_l=config.loss.m_l,
-                          m_s=config.loss.m_s,
-                          descriptor_size=config.model.descriptor_size
-                          ).to(device=config.device)
-    if "loss" in state_dict.keys():
-        criterion.load_state_dict(state_dict["loss"])
+    
     writer = SummaryWriter(config.log_dir) if config.world_rank == 0 else None
     
     start_epoch = state_dict.get("epoch") if "epoch" in state_dict.keys() else 0
@@ -235,7 +227,6 @@ def main() -> None:
         config=config,
         network=model,
         optimizer=optimizer,
-        loss=criterion,
         lr_scheduler=lr_scheduler,
         is_batch_scheduler=is_batch_scheduler,
         device=config.device,

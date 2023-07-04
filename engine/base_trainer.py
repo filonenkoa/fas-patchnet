@@ -1,11 +1,10 @@
 from abc import ABCMeta, abstractmethod
 
 class BaseTrainer(metaclass=ABCMeta):
-    def __init__(self, config, network, optimizer, loss, lr_scheduler, is_batch_scheduler: bool, device, trainloader, valloader, writer):
+    def __init__(self, config, network, optimizer, lr_scheduler, is_batch_scheduler: bool, device, trainloader, valloader, writer):
         self.config = config
         self.network = network
         self.optimizer = optimizer
-        self.loss = loss
         self.lr_scheduler = lr_scheduler
         self.is_batch_scheduler = is_batch_scheduler
         self.device = device

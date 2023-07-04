@@ -11,6 +11,7 @@ After carefully examining the [original repository](https://github.com/doantient
 - [x] Multiple datasets training
 - [x] Utility to convert datasets
 - [x] Compute FAS-related metrics (ACER, etc.)
+- [x] Incorporate loss into a model (the whole inference can be exported to a single ONNX file)
 - [ ] Split validation into miltiple GPUs
 
 ## Installation
