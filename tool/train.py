@@ -229,6 +229,8 @@ def main() -> None:
         criterion.load_state_dict(state_dict["loss"])
     writer = SummaryWriter(config.log_dir) if config.world_rank == 0 else None
     
+    start_epoch = state_dict.get("epoch") if "epoch" in state_dict.keys() else 0
+    
     trainer = Trainer(
         config=config,
         network=model,
@@ -239,7 +241,8 @@ def main() -> None:
         device=config.device,
         trainloader=trainloader,
         valloader=valloader,
-        writer=writer
+        writer=writer,
+        start_epoch=start_epoch
     )
 
     logger.info(f"Rank {config.world_rank}. Start training...")

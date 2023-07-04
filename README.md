@@ -4,11 +4,13 @@ This repository implements PatchNet from paper [PatchNet: A Simple Face Anti-Spo
 
 After carefully examining the [original repository](https://github.com/doantienthongbku/Implementation-patchnet), I have identified a number of missing features that I believe would greatly benefit its functionality. In light of this, I have made the decision to fork the repository and implement these features. Specifically, I incorporated distributed data parallel as well as training and validation for multiple datasets.
 
-## Plans
+## Plans to improve the repository
+- [x] More augmentations (torchvision ➞ albumentations)
+- [x] TurboJPEG support for faster image decoding
 - [x] DDP support
 - [x] Multiple datasets training
 - [x] Utility to convert datasets
-- [ ] Compute FAS-related metrics (ACER)
+- [x] Compute FAS-related metrics (ACER, etc.)
 - [ ] Split validation into miltiple GPUs
 
 ## Installation
@@ -34,12 +36,12 @@ datasets
 ```
 with [*.csv] having format (label only has 2 classes: 0-Spoofing, 1-Bonafide):
 ```
-image_name  |  label
-img_name1   |    0
-img_name2   |    1
+image_name      |  label
+img_name1.jpg   |    0
+img_name2.png   |    1
 ...
 ```
-
+`image_name` is the relative path to the image from the locations of the *.csv file.\
 One can find utility to convert exisiting images dataset into format supported by current repository in `utils/dataset_preparation/prepare_dataset.py`
 
 ### Training

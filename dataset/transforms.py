@@ -34,7 +34,7 @@ def get_transforms(cfg: dict, is_train: bool) -> Compose:
         train_augs = [HorizontalFlip(),
                       ShiftScaleRotate(shift_limit=pars['shift_scale']['shift_limit'],
                          scale_limit=pars['shift_scale']['scale_limit'], interpolation=pars['interpolation'],
-                         rotate_limit=0, p=pars['shift_scale']['prob']),
+                         rotate_limit=pars['rotate']['rotate_limit'], p=pars['shift_scale']['prob']),
         OneOf([
             CLAHE(clip_limit=pars['contrast']['clahe_clip_limit'],
                   tile_grid_size=pars['contrast']['clahe_grid_size']),
@@ -62,7 +62,7 @@ def get_transforms(cfg: dict, is_train: bool) -> Compose:
             train_augs.append(
                 CropAndPad(percent=(0, pars['crop_and_pad']['cut_rate']),
                      keep_size=False,
-                     sequential_apply=True,
+                    #  sequential_apply=True,
                      always_apply=False,
                      pad_cval=(0, 255), p=pars['crop_and_pad']['prob']))
 

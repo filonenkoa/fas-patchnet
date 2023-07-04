@@ -1,52 +1,56 @@
 {
     "interpolation": 3,
-    "togray": 0.1,
+    "togray": 0.15,
     "blur": {
-        "limit": 3,
+        "limit": 5,
         "prob": 0.15
     },
     "noise": {
-        "var_limit": 100,
-        "iaa_scale_max": 10,
+        "var_limit": 150,
+        "iaa_scale_max": 15,
         "prob": 0.15
     },
     "downscale": {
-        "scale_min": 0.85,
+        "scale_min": 0.75,
         "scale_max": 0.95,
         "prob": 0.15
     },
     "shift_scale": {
         "shift_limit": 0.06,
         "scale_limit": 0.1,
-        "prob": 0.2
+        "prob": 0.7
     },
     "rotate": {
-        "rotate_limit": 20.0
+        "rotate_limit": 179.0
     },
     "contrast": {
-        "clahe_clip_limit": 3,
+        "clahe_clip_limit": 4,
         "clahe_grid_size": [
             8,
             8
         ],
-        "brightness_limit": 0.2,
-        "contrast_limit": 0.2,
+        "brightness_limit": 0.3,
+        "contrast_limit": 0.3,
         "prob": 0.3
     },
     "hue_saturation": {
-        "hue_shift_limit": 15,
-        "sat_shift_limit": 20,
-        "val_shift_limit": 15,
+        "hue_shift_limit": 20,
+        "sat_shift_limit": 25,
+        "val_shift_limit": 20,
         "prob": 0.3
     },
     "coarsedropout": {
-        "max_holes": 3,
+        "max_holes": 4,
         "max_height": 32,
         "max_width": 32,
         "min_holes": 1,
         "min_height": 8,
         "min_width": 8,
         "fill_value": 128,
+        "prob": 0.3
+    },
+    "crop_and_pad": {
+        "cut_rate": 0.25,
         "prob": 0.3
     }
 }

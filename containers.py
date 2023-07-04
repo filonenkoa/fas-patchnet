@@ -46,3 +46,47 @@ class Rect2i:
     @property
     def area(self) -> int:
         return int(self.width * self.height)
+    
+
+@dataclass
+class ClassificationMetrics:
+    precision: float = 0.0
+    recall: float = 0.0  # == sensitivity
+    specificity: float = 0.0
+    f1: float = 0.0
+    f3: float = 0.0
+    apcer: float = 0.0
+    bpcer: float = 0.0
+    acer: float = 0.0
+    far: float = 0.0
+    frr: float = 0.0
+    hter: float = 0.0
+    threshold: float = 0.0
+    
+    def __repr__(self) -> str:
+        text = (f"APCER: {self.apcer*100:.2f}%\n"
+                f"BPCER: {self.bpcer*100:.2f}%\n"
+                f"ACER: {self.acer*100:.2f}%\n"
+                f"F1: {self.f1*100:.2f}%\n"
+                f"F3: {self.f3*100:.2f}%\n"
+                f"P: {self.precision*100:.2f}%\n"
+                f"R: {self.recall*100:.2f}%\n"
+                f"S: {self.specificity*100:.2f}%\n"
+                )
+        return text
+
+
+@dataclass
+class PredictionCounters:
+    tp: int = 0
+    fp: int = 0
+    tn: int = 0
+    fn: int = 0
+    
+    def __add__(self, other):
+        return PredictionCounters(
+            tp = self.tp + other.tp,
+            fp = self.fp + other.fp,
+            tn = self.tn + other.tn,
+            fn = self.fn + other.fn
+        )

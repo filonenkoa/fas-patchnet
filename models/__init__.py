@@ -79,7 +79,7 @@ def build_network(config: Box, state_dict: dict):
         logger.info(f"🧠 Model parameters: {params/1_000_000:.3f} M")
         logger.info(f"💻 Model complexity: {macs/1_000_000_000:.3f} GMACs")
         
-    if state_dict is not None and not config.model.pretrained:
+    if state_dict is not None:
         model_raw = copy.deepcopy(backbone)
         # model_raw = model_raw.to(config.device)
         backbone.load_state_dict(state_dict, strict = config.model.resume_strict)
