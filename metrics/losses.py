@@ -89,13 +89,18 @@ class AdMSoftmaxLoss(nn.Module):
 
 
 class PatchLoss(nn.Module):
-
-    def __init__(self, alpha1=1.0, alpha2=1.0):
+    def __init__(self,
+                 alpha1: float = 1.0,
+                 alpha2: float = 1.0,
+                 s: float = 30.0,
+                 m_l: float = 0.4,
+                 m_s: float = 0.1,
+                 descriptor_size: int = 256):
         super().__init__()
         self.alpha1 = alpha1
         self.alpha2 = alpha2
         self.sim_loss = SimilarityLoss()
-        self.amsm_loss = AdMSoftmaxLoss(1024, 2)
+        self.amsm_loss = AdMSoftmaxLoss(descriptor_size, 2, s=s, m_l=m_l, m_s=m_s)
 
     
     def forward(self, x1, x2, label):

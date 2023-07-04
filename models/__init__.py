@@ -1,11 +1,15 @@
 import copy
 from pathlib import Path
+import sys
 from box import Box
 from loguru import logger
 import torch
 from ptflops import get_model_complexity_info
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from pathlib import Path
+sys.path.append(Path(__file__).resolve().parent.as_posix())
+sys.path.append(Path(__file__).resolve().parents[1].as_posix())
 
 def models_weights_difference_ratio(model_1: torch.nn.Module, model_2: torch.nn.Module) -> float:
     models_differ = 0
@@ -24,20 +28,20 @@ def models_weights_difference_ratio(model_1: torch.nn.Module, model_2: torch.nn.
     return models_differ / total_items
 
 
-def get_backbone(config: Box) -> torch.Module:
-    if config.mode.base == "cdcn":
+def get_backbone(config: Box) -> torch.nn.Module:
+    if config.model.base == "cdcn":
         from CDCNs import FeatureExtractor as Backbone
-    elif config.mode.base == "convnext_tiny":
+    elif config.model.base == "convnext_tiny":
         from convnext_tiny import FeatureExtractor as Backbone
-    elif config.mode.base == "dc_cdn":
+    elif config.model.base == "dc_cdn":
         from DC_CDN import FeatureExtractor as Backbone
-    elif config.mode.base == "resnet18":
+    elif config.model.base == "resnet18":
         from resnet18 import FeatureExtractor as Backbone
-    elif config.mode.base == "swin_base":
+    elif config.model.base == "swin_base":
         from swin_base import FeatureExtractor as Backbone
-    elif config.mode.base == "efficientformerv2_s0":
+    elif config.model.base == "efficientformerv2_s0":
         from efficientformer import EFFICIENTFORMER_V2_S0 as Backbone
-    elif config.mode.base == "efficientformerv2_s1":
+    elif config.model.base == "efficientformerv2_s1":
         from efficientformer import EFFICIENTFORMER_V2_S1 as Backbone
     else:
         raise NotImplementedError
@@ -75,13 +79,13 @@ def build_network(config: Box, state_dict: dict):
         logger.info(f"🧠 Model parameters: {params/1_000_000:.3f} M")
         logger.info(f"💻 Model complexity: {macs/1_000_000_000:.3f} GMACs")
         
-    if state_dict is not None:
+    if state_dict is not None and not config.model.pretrained:
         model_raw = copy.deepcopy(backbone)
         # model_raw = model_raw.to(config.device)
         backbone.load_state_dict(state_dict, strict = config.model.resume_strict)
         difference_ratio = models_weights_difference_ratio(model_raw, backbone)
         logger.info(f"The difference between before and after weights loading is {difference_ratio*100:.4}%")
-        
+    backbone = backbone.to(config.device)   
     if config.world_size > 1:
         if config.device_name == "cuda":
             # model = DDP(model, device_ids=[config.local_rank], output_device=config.local_rank)

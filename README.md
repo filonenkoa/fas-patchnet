@@ -51,6 +51,8 @@ $ source env/bin/activate  # Linux
 env\Scripts\activate.bat  # Windows
 $ pip install -r requirements.txt
 ```
+
+When using EfficientFormerV2 model, put pretrained weights to `weights/efficientformerv2`
 ## Usage
 ### Data preparation
 ```

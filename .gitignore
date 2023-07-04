@@ -1,2 +1,6 @@
 env
 logs
+.vscode
+__pycache__
+
+*.pth

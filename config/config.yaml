@@ -1,13 +1,23 @@
 log_dir: 'logs'
 device_name: 'cuda'  # cuda, cpu
 seed: 42
+dist_timeout: 2400
 dataset:
+  num_workers: 16
+  num_workers_val: 32
   name: 'spoofing_combined_2023'
   root: '~/datasets/spoofing_combined_2023'
   resize_size: 232
   crop_size: 224
-  train_set: 'train_uniform.csv'
-  val_set: 'val_uniform.csv'
+  smoothing: True
+  augmentation: 'medium2'
+  train_set:
+    - datasets/spoofing/ds1_train/markup.csv
+    - datasets/spoofing/ds2_train/
+
+  val_set:
+    - datasets/spoofing/ds1_val/markup.csv
+    - datasets/spoofing/ds2_val/
 
 model:
   base: 'efficientformerv2_s1'
@@ -16,19 +26,27 @@ model:
   resume: False
   resume_strict: True
   dropout: 0.1
-  descriptor_size: 256  # Where applicable
+  descriptor_size: 128  # The last layer size before the classification layer
 
 train:
-  batch_size: 16
+  val_before_train: False
+  batch_size: 230
   optimizer: 'adamw'
-  lr: 0.002
-  weight_decay: 1e-5
-  num_epochs: 300
+  lr: 0.0002
+  weight_decay: 0.00005
+  num_epochs: 3000
   scheduler_name: cosr
   restart_epoch: 10  # for CosineAnnealingWarmRestarts
   restart_multiplier: 2  # for CosineAnnealingWarmRestarts
   load_optimizer: False
   load_scheduler: False
 
+loss:
+  alpha1: 1.0
+  alpha2: 1.0
+  s: 30.0
+  m_l: 0.4
+  m_s: 0.1
+
 val:
-  batch_size: 16
+  batch_size: 512

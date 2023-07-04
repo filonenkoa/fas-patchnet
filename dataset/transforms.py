@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import cv2
 
 from albumentations.pytorch import ToTensorV2
 from albumentations import (
@@ -7,11 +8,12 @@ from albumentations import (
     Transpose, ShiftScaleRotate, Blur, OpticalDistortion, GridDistortion, HueSaturationValue,
     IAAAdditiveGaussianNoise, GaussNoise, MotionBlur, MedianBlur, IAAPiecewiseAffine,
     IAASharpen, IAAEmboss, RandomBrightnessContrast, CenterCrop, CoarseDropout,
-    ToGray, Downscale, Resize, ToFloat, OneOf, Compose, CropAndPad
+    ToGray, Downscale, Resize, ToFloat, OneOf, Compose, CropAndPad, RandomCrop
 )
 
+
 def get_transforms(cfg: dict, is_train: bool) -> Compose:
-    augs_file = Path("config", "augs", f"{cfg['augmentation']}.json")
+    augs_file = Path("config", "augs", f"{cfg.dataset.augmentation}.json")
     with open(augs_file, 'r') as f:
         pars = json.load(f)
         
@@ -27,7 +29,7 @@ def get_transforms(cfg: dict, is_train: bool) -> Compose:
                              min_width=pars['coarsedropout']['min_width'],
                              fill_value=v)
 
-    aug_lst = [Resize(input_size, input_size, interpolation=pars['interpolation'])]
+    aug_lst = [Resize(input_size, input_size, interpolation=cv2.INTER_AREA)]
     if is_train:
         train_augs = [HorizontalFlip(),
                       ShiftScaleRotate(shift_limit=pars['shift_scale']['shift_limit'],
@@ -66,35 +68,10 @@ def get_transforms(cfg: dict, is_train: bool) -> Compose:
 
         aug_lst.extend(train_augs)
 
-    aug_lst.append(CenterCrop(crop_size, crop_size))
+        aug_lst.append(RandomCrop(crop_size, crop_size, p=1))
+    else:
+        aug_lst.append(CenterCrop(crop_size, crop_size))
     aug_lst.append(Normalize(mean=[0.406, 0.456, 0.485], std=[0.225, 0.224, 0.229]))  # BGR
-    # aug_lst.append(ToFloat())
     aug_lst.append(ToTensorV2())
-
-    
-
-# from torchvision import transforms
-# from torchvision.transforms import Compose, Resize, RandomCrop, InterpolationMode
-
-
-# def get_transforms(cfg: dict) -> Compose:
-#     # Without Resize transform, images are of different sizes and it causes an error
-#     train_transform = transforms.Compose([
-#         Resize(cfg['model']['image_size'], interpolation=InterpolationMode.BILINEAR),
-#         RandomCrop(cfg['dataset']['augmentation']['rand_crop_size']),
-#         transforms.RandomHorizontalFlip(cfg['dataset']['augmentation']['rand_hori_flip']),
-#         transforms.RandomRotation(cfg['dataset']['augmentation']['rand_rotation']),
-#         transforms.ToTensor(),
-#         transforms.Normalize(cfg['dataset']['mean'], cfg['dataset']['sigma'])
-#     ])
-
-#     val_transform = transforms.Compose([
-#         Resize(cfg['model']['image_size'], interpolation=InterpolationMode.BILINEAR),
-#         RandomCrop(cfg['dataset']['augmentation']['rand_crop_size']),
-#         transforms.ToTensor(),
-#         transforms.Normalize(cfg['dataset']['mean'], cfg['dataset']['sigma'])
-#     ])
-    
-#     return train_transform, val_transform
-
-print("DONE")
+    # aug_lst.append(ToFloat())
+    return Compose(aug_lst)

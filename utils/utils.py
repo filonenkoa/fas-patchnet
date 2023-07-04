@@ -1,3 +1,5 @@
+from pathlib import Path
+from typing import List
 from box import Box
 import torch.nn.functional as F
 from scipy.optimize import brentq
@@ -101,3 +103,12 @@ def frame_count(video_path, manual=False):
             frames = manual_count(cap)
     cap.release()
     return frames
+
+
+def get_all_file_paths(path: Path, extensions=[".jpg", ".png", ".jpeg", ".bmp"]) -> List[Path]:
+    path = path.expanduser()
+    files_paths: List[Path] = []
+    for extension in extensions:
+        files = list(path.rglob(f"*{extension}"))
+        files_paths.extend(files)
+    return files_paths
