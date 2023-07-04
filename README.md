@@ -1,48 +1,15 @@
 # PatchNet: A Simple Face Anti-Spoofing Framework via Fine-Grained Patch Recognition
 
-This repository implements PatchNet from paper [PatchNet: A Simple Face Anti-Spoofing Framework via Fine-Grained Patch Recognition](https://arxiv.org/abs/2203.14325)
+This repository implements PatchNet from paper [PatchNet: A Simple Face Anti-Spoofing Framework via Fine-Grained Patch Recognition](https://arxiv.org/abs/2203.14325) (UNOFFICIAL)
 
-## Reference
-[1] PatchNet: [PatchNet: A Simple Face Anti-Spoofing Framework via Fine-Grained Patch Recognition](https://arxiv.org/abs/2203.14325) \
-[2] CDCN repository: [CDCN-Face-Anti-Spoofing.pytorch](https://github.com/voqtuyen/CDCN-Face-Anti-Spoofing.pytorch)
+After carefully examining the [original repository](https://github.com/doantienthongbku/Implementation-patchnet), I have identified a number of missing features that I believe would greatly benefit its functionality. In light of this, I have made the decision to fork the repository and implement these features. Specifically, I incorporated distributed data parallel as well as training and validation for multiple datasets.
 
-## Project Structure
-```
-Implementation-patchnet
-      |
-      |---config
-      |     |--config.yaml
-      |
-      |---dataset
-      |     |--FAS_dataset.py
-      |     |--transform.py
-      |
-      |---engine
-      |     |--__init__.py
-      |     |--base_trainer.py
-      |     |--Patchnet_trainer.py
-      |
-      |---metrics
-      |     |--losses.py
-      |     |--meter.py
-      |
-      |---models
-      |     |--CDCNs.py
-      |     |--convnext_tiny.py
-      |     |--DC_CDN.py
-      |     |--resnet18.py
-      |     |--swin_base.py
-      |
-      |---tool
-      |     |--test.py
-      |     |--train.py
-      |
-      |---utils
-      |     |--utils.py
-      |
-      |---README.md
-      |---requirements.txt
-```
+## Plans
+- [x] DDP support
+- [x] Multiple datasets training
+- [x] Utility to convert datasets
+- [ ] Compute FAS-related metrics (ACER)
+- [ ] Split validation into miltiple GPUs
 
 ## Installation
 ```
@@ -65,24 +32,33 @@ datasets
     |---val.csv
     |---test.csv
 ```
-with [set_name.csv] have format (label only has 2 class: 0-Spoofing, 1-Liveness): \
+with [*.csv] having format (label only has 2 classes: 0-Spoofing, 1-Bonafide):
 ```
 image_name  |  label
 img_name1   |    0
 img_name2   |    1
 ...
 ```
-### training
+
+One can find utility to convert exisiting images dataset into format supported by current repository in `utils/dataset_preparation/prepare_dataset.py`
+
+### Training
 ```
-python3 train.py
+torchrun --standalone --nnodes=1 --nproc_per_node=4 tool/train.py --config config.yaml
 ```
+`nproc_per_node` is the number of GPUs you want to use.
+
 ### Testing
+`This step has not been remade by me yet.`\
 Go to tool/test.py and fix saved_name to your path to checkpoint \
 Run
 ```
 python3 test.py
 ```
-## Contributer
-Tien Thong Doan \
-Minh Chau Nguyen \
-Minh Hung Nguyen
+## Original repository contributors
+- Tien Thong Doan
+- Minh Chau Nguyen
+- Minh Hung Nguyen
+
+## This repository contributors
+- Alexander Filonenko
