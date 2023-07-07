@@ -1,4 +1,5 @@
 import datetime
+import math
 import os
 import shutil
 import sys
@@ -14,20 +15,23 @@ import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import Dataset
 from torch.utils.tensorboard import SummaryWriter
 from albumentations import Compose
 
 from pathlib import Path
+
 sys.path.append(Path(__file__).resolve().parents[1].as_posix())
 
+from samplers import DistributedBalancedSampler
 from engine.Patchnet_trainer import Trainer
-from metrics.losses import PatchLoss
-from dataset.FAS_dataset import FASDataset
-from utils.utils import read_cfg, get_device, get_rank
+from dataset.FAS_dataset import ConcatBinaryClassificationDataset, FASDataset
+from utils.utils import read_cfg
 from dataset.transforms import get_transforms
 from models import build_network, load_checkpoint
 from optimizers import get_optimizer
 from schedulers import init_scheduler
+from reporting import log
 
 
 def get_config() -> Box:
@@ -46,76 +50,95 @@ def init_logger(config: Box) -> None:
     logger.add(Path(config.log_dir, "log.log"))
 
 
-def concat_datasets(dataset_paths: List[str], transforms: Compose, smoothing: bool) -> ConcatDataset:
+def confirm_dataset_path(dataset_path: Path) -> Path:
+    if not dataset_path.is_file():
+        possible_markup_path = dataset_path / "markup.csv"
+        if possible_markup_path.is_file():
+            dataset_path = possible_markup_path
+        else:
+            raise Exception(f"Could not find markup file for {dataset_path}")
+    return dataset_path
+
+
+def initialize_datasets(dataset_paths: List[str], transforms: Compose, smoothing: bool, is_train: bool) -> List[FASDataset]:
     datasets = []
     for dataset_path in dataset_paths:
-        dataset_path = Path(dataset_path)
-        if not dataset_path.is_file():
-            possible_markup_path = dataset_path / "markup.csv"
-            if possible_markup_path.is_file():
-                dataset_path = possible_markup_path
-            else:
-                raise Exception(f"Could not find markup file for {dataset_path}")
+        dataset_path = confirm_dataset_path(Path(dataset_path))
         datasets.append(FASDataset(
             root_dir=dataset_path.parent,
             csv_path=dataset_path,
             transform=transforms,
-            smoothing=smoothing
+            smoothing=smoothing,
+            is_train=is_train
         ))
-    return ConcatDataset(datasets)
+    return datasets
             
 
 def get_train_set(config: Box, transforms: Compose) -> ConcatDataset:
     assert len(config.dataset.train_set) > 0
     if config.world_rank == 0:
         logger.info(f"Combining {config.dataset.train_set} train datasets")
-    datasets = concat_datasets(config.dataset.train_set, transforms, config.dataset.smoothing)
+    datasets = ConcatDataset(initialize_datasets(config.dataset.train_set, transforms, config.dataset.smoothing, True))
     return datasets
     
 
-def get_val_set(config: Box, transforms: Compose) -> ConcatDataset:
+def get_val_sets(config: Box, transforms: Compose) -> List[FASDataset]:
     assert len(config.dataset.val_set) > 0
-    if config.world_rank == 0:
-        logger.info(f"Combining {config.dataset.val_set} train datasets")
-    datasets = concat_datasets(config.dataset.val_set, transforms, config.dataset.smoothing)
+    max_datasets_per_rank = math.ceil(len(config.dataset.val_set) / config.world_size)
+    lower_bound = config.world_rank * max_datasets_per_rank
+    upper_bound = min((config.world_rank + 1) * max_datasets_per_rank, len(config.dataset.val_set))
+    local_datasets = config.dataset.val_set[lower_bound:upper_bound]
+    config.datasets_start_index = lower_bound
+    config.all_dataset_names = [FASDataset.path_to_name(p) for p in config.dataset.val_set]
+    log(f"Rank {config.world_rank}: Local validation datasets: {[FASDataset.path_to_name(ds) for ds in local_datasets]}")
+    datasets = initialize_datasets(local_datasets, transforms, config.dataset.smoothing, False)
     return datasets
-    
-        
 
 
-def get_dataloaders(config: Box) -> Tuple[DataLoader]:
+def get_dataloaders(config: Box) -> Tuple[DataLoader, List[DataLoader]]:
     train_transform = get_transforms(config, is_train=True)
     val_transform = get_transforms(config, is_train=False)
     
-    trainset = get_train_set(config, train_transform)
-    valset = get_val_set(config, val_transform)
+    train_dataset = get_train_set(config, train_transform)
+    val_datasets = get_val_sets(config, val_transform)
 
     sampler = None
     if config.world_size > 1:
-        sampler = torch.utils.data.distributed.DistributedSampler(
-            dataset = trainset,
-            shuffle = True,
-            seed=config.seed,
-            drop_last=True
-        )
+        if config.train.balanced_sampler:
+            sampler = DistributedBalancedSampler(
+                dataset=train_dataset,
+                num_replicas=config.world_size,
+                rank=config.world_rank,
+                shuffle=True,
+                seed=config.seed,
+                drop_last=False)
+        else:
+            sampler = torch.utils.data.distributed.DistributedSampler(
+                dataset = train_dataset,
+                shuffle = True,
+                seed=config.seed,
+                drop_last=True
+            )
 
-    trainloader = DataLoader(
-        dataset=trainset,
+    train_loader = DataLoader(
+        dataset=train_dataset,
         batch_size=config['train']['batch_size'],
         shuffle=True if sampler is None else False,
         num_workers=config.dataset.num_workers,
         sampler=sampler
     )
-
-    valloader = DataLoader(
-        dataset=valset,
-        batch_size=config['val']['batch_size'],
-        shuffle=False,
-        num_workers=config.dataset.num_workers_val,
-        drop_last=False
-    )
+    val_loaders = []
+    for ds in val_datasets:
+        val_loaders.append(
+            DataLoader(
+                dataset=ds,
+                batch_size=config['val']['batch_size'],
+                shuffle=False,
+                num_workers=config.dataset.num_workers_val,
+                drop_last=False
+                ))
     
-    return trainloader, valloader
+    return train_loader, val_loaders
     
 
 def init_libraries(config: Box) -> None:
@@ -209,7 +232,7 @@ def main() -> None:
     if config.local_rank == 0:
         logger.info(config)
     
-    trainloader, valloader = get_dataloaders(config)
+    train_loader, val_loaders = get_dataloaders(config)
     
     # build model and engine
     state_dict = load_checkpoint(config)
@@ -230,8 +253,8 @@ def main() -> None:
         lr_scheduler=lr_scheduler,
         is_batch_scheduler=is_batch_scheduler,
         device=config.device,
-        trainloader=trainloader,
-        valloader=valloader,
+        trainloader=train_loader,
+        val_loaders=val_loaders,
         writer=writer,
         start_epoch=start_epoch
     )

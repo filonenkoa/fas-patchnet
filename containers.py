@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+import torch
+
 
 @dataclass
 class Rect2i:
@@ -64,14 +66,14 @@ class ClassificationMetrics:
     threshold: float = 0.0
     
     def __repr__(self) -> str:
-        text = (f"APCER: {self.apcer*100:.2f}%\n"
-                f"BPCER: {self.bpcer*100:.2f}%\n"
-                f"ACER: {self.acer*100:.2f}%\n"
-                f"F1: {self.f1*100:.2f}%\n"
-                f"F3: {self.f3*100:.2f}%\n"
-                f"P: {self.precision*100:.2f}%\n"
-                f"R: {self.recall*100:.2f}%\n"
-                f"S: {self.specificity*100:.2f}%\n"
+        text = (f"APCER: {self.apcer*100:.2f}%, "
+                f"BPCER: {self.bpcer*100:.2f}%, "
+                f"ACER: {self.acer*100:.2f}%, "
+                f"F1: {self.f1*100:.2f}%, "
+                f"F3: {self.f3*100:.2f}%, "
+                f"P: {self.precision*100:.2f}%, "
+                f"R: {self.recall*100:.2f}%, "
+                f"S: {self.specificity*100:.2f}%"
                 )
         return text
 
@@ -89,4 +91,17 @@ class PredictionCounters:
             fp = self.fp + other.fp,
             tn = self.tn + other.tn,
             fn = self.fn + other.fn
+        )
+    
+    def as_tensor(self) -> torch.Tensor:
+        return torch.Tensor((self.tp, self.fp, self.tn, self.fn))
+    
+    @staticmethod    
+    def from_tensor(tensor: torch.Tensor):
+        assert len(tensor) == 4
+        return PredictionCounters(
+            tp = tensor[0],
+            fp = tensor[1],
+            tn = tensor[2],
+            fn = tensor[3]
         )

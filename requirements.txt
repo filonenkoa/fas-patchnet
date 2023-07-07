@@ -33,7 +33,8 @@ pyasn1>=0.4.8
 pyasn1-modules>=0.2.8
 pyparsing>=3.0.9
 python-box
-python-dateutil>=2.8.2
+python-dateutil>=2.8.
+python-dotenv
 turbojpeg @ git+https://github.com/lilohuang/PyTurboJPEG.git
 pytz>=2022.6
 PyWavelets>=1.3.0

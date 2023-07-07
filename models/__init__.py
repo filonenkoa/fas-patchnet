@@ -79,17 +79,18 @@ def build_network(config: Box, state_dict: dict):
     model = PatchnetModel(config=config, backbone=backbone)
     
     with torch.no_grad():
-        model.eval()
-        input_constructor = partial(random_input_constructor, dtype=next(model.parameters()).dtype, device=next(model.parameters()).device)
-        macs, params = get_model_complexity_info(
-            model,
-            (3, config.dataset.crop_size, config.dataset.crop_size),
-            as_strings=False,
-            print_per_layer_stat=False,
-            verbose=False, input_constructor=input_constructor)
-    if config.world_rank == 0:
-        logger.info(f"🧠 Model parameters: {params/1_000_000:.3f} M")
-        logger.info(f"💻 Model complexity: {macs/2_000_000_000:.3f} GMACs")
+        if config.world_rank == 0:
+            model.eval()
+            input_constructor = partial(random_input_constructor, dtype=next(model.parameters()).dtype, device=next(model.parameters()).device)
+            macs, params = get_model_complexity_info(
+                model,
+                (3, config.dataset.crop_size, config.dataset.crop_size),
+                as_strings=False,
+                print_per_layer_stat=False,
+                verbose=False, input_constructor=input_constructor)
+        
+            logger.info(f"🧠 Model parameters: {params/1_000_000:.3f} M")
+            logger.info(f"💻 Model complexity: {macs/2_000_000_000:.3f} GMACs")
         
     if state_dict.get("model") is not None:
         model_raw = copy.deepcopy(model)
