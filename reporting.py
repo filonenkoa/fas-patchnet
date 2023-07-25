@@ -24,7 +24,7 @@ class Severity(Enum):
     CRIT=4
 
 
-def log(message: str,
+def report(message: str,
         severity: Severity = Severity.INFO,
         use_telegram: bool = False):
     if message is None or len(message) == 0:
@@ -50,5 +50,5 @@ if __name__ == "__main__":
     message = "This is a test message"
     config = Box()
     config.logger = logger
-    log(message=message, config=config, severity="warn", use_logging=True, use_telegram=True)
+    report(message=message, config=config, severity="warn", use_logging=True, use_telegram=True)
     print("DONE")

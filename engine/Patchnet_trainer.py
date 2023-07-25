@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.append(Path(__file__).resolve().parents[1].as_posix())
 
 from metrics.metrics_counter import MetricsCounter
-from reporting import log
+from reporting import report
 from utils.utils import calc_acc
 
 
@@ -153,7 +153,7 @@ class Trainer(BaseTrainer):
                    
         if self.config.world_rank == 0:
             epoch_report = f"\nEpoch {epoch}, train metrics:\n{epoch_metrics}"
-            log(epoch_report, use_telegram=self.config.telegram_reports)
+            report(epoch_report, use_telegram=self.config.telegram_reports)
             self.writer.add_scalar("ACER/train", epoch_metrics.acer, epoch)
             self.writer.add_scalar("APCER/train", epoch_metrics.apcer, epoch)
             self.writer.add_scalar("BPCER/train", epoch_metrics.bpcer, epoch)
@@ -180,7 +180,7 @@ class Trainer(BaseTrainer):
             val_metrics = self.validate(epoch)
             if self.config.local_rank == 0:
                 if val_metrics["total"].acer < self.best_val_acer:
-                    log(f"Validation ACER improved from {self.best_val_acer:.4f} to {val_metrics['total'].acer:.4f}")
+                    report(f"Validation ACER improved from {self.best_val_acer*100:.4f}% to {val_metrics['total'].acer*100:.4f}%")
                     self.best_val_acer = val_metrics["total"].acer
                     self.best_epoch = epoch
         if dist.is_initialized():
@@ -204,7 +204,7 @@ class Trainer(BaseTrainer):
             val_metrics = self.validate(epoch)
             if self.config.world_rank == 0:
                 if val_metrics["total"].acer < self.best_val_acer:
-                    log(f"Validation ACER improved from {self.best_val_acer*100:.2f}% to {val_metrics['total'].acer*100:.2f}%")
+                    report(f"Validation ACER improved from {self.best_val_acer*100:.2f}% to {val_metrics['total'].acer*100:.2f}%")
                     self.best_val_acer = val_metrics["total"].acer
                     self.best_epoch = epoch
                 
@@ -213,9 +213,9 @@ class Trainer(BaseTrainer):
                 self.epoch_time.update(epoch_time)
                 epoch_end_message = (
                     f"Epoch {epoch} time = {int(self.epoch_time.val)} seconds",
-                    f"Best ACER = {self.best_val_acer:.4f} at epoch {self.best_epoch}"
+                    f"Best ACER = {self.best_val_acer*100:.4f}% at epoch {self.best_epoch}"
                     )
-                log(epoch_end_message, use_telegram=self.config.telegram_reports)
+                report(epoch_end_message, use_telegram=self.config.telegram_reports)
     
     @staticmethod                 
     def estimate_time(start_time: float, cur_iter: int, max_iter: int):
@@ -305,7 +305,7 @@ class Trainer(BaseTrainer):
             self.writer.add_scalar(f"Recall/val", metrics["total"].recall, epoch)
             self.writer.add_scalar(f"Specificity/val", metrics["total"].specificity, epoch)    
                 
-            log(val_end_text, use_telegram=self.config.telegram_reports)
+            report(val_end_text, use_telegram=self.config.telegram_reports)
         
         if dist.is_initialized():
             dist.barrier()

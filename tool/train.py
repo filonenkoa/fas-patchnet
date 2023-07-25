@@ -25,13 +25,13 @@ sys.path.append(Path(__file__).resolve().parents[1].as_posix())
 
 from samplers import DistributedBalancedSampler
 from engine.Patchnet_trainer import Trainer
-from dataset.FAS_dataset import FASDataset
+from dataset.FAS_dataset import FASDataset, ConcatDatasetWithLabels
 from utils.utils import read_cfg
 from dataset.transforms import get_transforms
 from models import build_network, load_checkpoint
 from optimizers import get_optimizer
 from schedulers import init_scheduler
-from reporting import log
+from reporting import report
 
 
 def get_config() -> Box:
@@ -78,7 +78,11 @@ def get_train_set(config: Box, transforms: Compose) -> ConcatDataset:
     assert len(config.dataset.train_set) > 0
     if config.world_rank == 0:
         logger.info(f"Combining {config.dataset.train_set} train datasets")
-    datasets = ConcatDataset(initialize_datasets(config.dataset.train_set, transforms, config.dataset.smoothing, True))
+    datasets = ConcatDatasetWithLabels(
+        initialize_datasets(
+            config.dataset.train_set, transforms, config.dataset.smoothing, True
+            )
+        )
     return datasets
     
 
@@ -90,7 +94,7 @@ def get_val_sets(config: Box, transforms: Compose) -> List[FASDataset]:
     local_datasets = config.dataset.val_set[lower_bound:upper_bound]
     config.datasets_start_index = lower_bound
     config.all_dataset_names = [FASDataset.path_to_name(p) for p in config.dataset.val_set]
-    log(f"Rank {config.world_rank}: Local validation datasets: {[FASDataset.path_to_name(ds) for ds in local_datasets]}")
+    report(f"Rank {config.world_rank}: Local validation datasets: {[FASDataset.path_to_name(ds) for ds in local_datasets]}")
     datasets = initialize_datasets(local_datasets, transforms, config.dataset.smoothing, False)
     return datasets
 
@@ -244,7 +248,7 @@ def main() -> None:
     
     writer = SummaryWriter(config.log_dir) if config.world_rank == 0 else None
     
-    start_epoch = state_dict.get("epoch") if "epoch" in state_dict.keys() else 0
+    start_epoch = state_dict.get("epoch") + 1 if "epoch" in state_dict.keys() else 0
     
     trainer = Trainer(
         config=config,
