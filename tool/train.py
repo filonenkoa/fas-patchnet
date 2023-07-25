@@ -25,7 +25,7 @@ sys.path.append(Path(__file__).resolve().parents[1].as_posix())
 
 from samplers import DistributedBalancedSampler
 from engine.Patchnet_trainer import Trainer
-from dataset.FAS_dataset import ConcatBinaryClassificationDataset, FASDataset
+from dataset.FAS_dataset import FASDataset
 from utils.utils import read_cfg
 from dataset.transforms import get_transforms
 from models import build_network, load_checkpoint

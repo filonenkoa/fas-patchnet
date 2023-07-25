@@ -16,7 +16,7 @@ After carefully examining the [original repository](https://github.com/doantient
 - [x] Telegram reports
 - [x] Compute metrics for each val dataset separately
 - [x] Split validation into miltiple GPUs
-- [ ] Balanced sampler suitable for DDP
+- [x] Balanced sampler suitable for DDP
 - [ ] Conversion to ONNX
 
 

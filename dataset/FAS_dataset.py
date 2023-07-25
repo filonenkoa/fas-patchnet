@@ -13,7 +13,6 @@ from turbojpeg_singleton import jpeg_reader
 
 
 class FASDataset(Dataset):
-
     def __init__(self, root_dir: Path, csv_path: Path, transform=None, smoothing: bool = True, is_train: bool = True):
         super().__init__()
         self.root_dir = root_dir
@@ -35,7 +34,6 @@ class FASDataset(Dataset):
     def __getitem__(self, index):
         img_name = Path(self.root_dir, self.data.iloc[index, 0])
         label = self.data.iloc[index, 1]
-        # img_name = os.path.join(self.root_dir, "images", img_name)
         
         if img_name.suffix in (".jpg", ".jpeg"):
             with open(img_name, "rb") as f:
@@ -54,40 +52,23 @@ class FASDataset(Dataset):
 
     def __len__(self):
         return len(self.data)
+
+
+class SampleDataset(Dataset):
+    """
+    A dummy dataset to test a sampler
+    """
+    def __init__(self, class_ratio: float = 4.0/1.0, base_number: int = 100):
+        super().__init__()
+        self.labels = [0] * int(base_number * class_ratio) + [1] * base_number
+        # self.values = [100] * len(self.labels)
+        
+    def __len__(self):
+        return len(self.labels)
     
-    # def get_class_counts(self) -> Counter:
-    #     targets = self.data[1].tolist()
-    #     class_counts = Counter(targets)
-    #     return class_counts
+    def __getitem__(self, index) -> int:
+        return 111, self.labels[index]
     
-    # def get_class_indexes(self) -> Dict[int, List[int]]:
-    #     indexes_dict = defaultdict(list)
-    #     for i, original_index in enumerate(indexes):
-    #         class_idx = self.targets_all[original_index]
-    #         indexes_dict[class_idx].append(i)
-    #     return indexes_dict
-
-
-
-class ConcatBinaryClassificationDataset(ConcatDataset):
-    def __init__(self, datasets: Iterable[Dataset]) -> None:
-        super().__init__(datasets)
-
-        self.__compute_class_counts()
-        self.__compute_class_indices()
-
-
-    def __compute_class_counts(self) -> None:
-        self.class_counts = Counter({0: 0, 1: 0})
-        for ds in self.datasets:
-            self.class_counts += ds.get_class_counts()
-
-    def __compute_class_indices(self) -> None:
-        bias = 0
-        self.class_indices = defaultdict(list)
-        for ds in enumerate(self.datasets):
-            current_class_indexes = ds.get_class_indexes()
-            for k, v in current_class_indexes.items():
-                shifted_indexes = [value + bias for value in v]
-                self.class_indices[k] += shifted_indexes
-            bias += len(ds)   
+    def __repr__(self):
+        classes_num = Counter(self.labels)
+        return f"Number of classes {classes_num[0]} and {classes_num[1]}"
