@@ -33,4 +33,4 @@ class PatchnetModel(BaseModel):
         return loss
     
     def predict(self, descriptor: Tensor) -> Tensor:
-        return F.softmax(self.patch_loss.amsm_loss.s * self.patch_loss.amsm_loss.fc(descriptor.squeeze()), dim=1)
+        return F.softmax(self.patch_loss.amsm_loss.s * self.patch_loss.amsm_loss.fc(descriptor), dim=1)

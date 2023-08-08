@@ -17,7 +17,7 @@ After carefully examining the [original repository](https://github.com/doantient
 - [x] Compute metrics for each val dataset separately
 - [x] Split validation into miltiple GPUs
 - [x] Balanced sampler suitable for DDP
-- [ ] Conversion to ONNX
+- [x] Conversion to ONNX
 
 
 ## Installation
@@ -73,6 +73,10 @@ Run
 ```bash
 python3 test.py
 ```
+
+### Conversion to ONNX
+Use a script `utils/convert_to_onnx.py`. It will create 2 versions of models: for batch size = 1 and for dynamic batch size. Some inference engines require all the dimensions fixed. 
+
 ## Original repository contributors
 - Tien Thong Doan
 - Minh Chau Nguyen
@@ -80,3 +84,4 @@ python3 test.py
 
 ## This repository contributors
 - Alexander Filonenko
+
