@@ -1,3 +1,4 @@
+import csv
 import os
 from pathlib import Path
 from random import randint
@@ -9,7 +10,7 @@ from torch.nn import Module
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import torch.distributed as dist
-from containers import ClassificationMetrics, PredictionCounters
+from containers import BestMetric, ClassificationMetrics, PredictionCounters
 from engine.base_trainer import BaseTrainer
 from metrics.meter import AvgMeter
 from tqdm.auto import tqdm, trange
@@ -48,8 +49,13 @@ class Trainer(BaseTrainer):
         self.start_epoch = start_epoch
         
         self.epoch_time = AvgMeter(writer=writer, name="Epoch time, s", num_iter_per_epoch=1)
-        self.best_val_acer = 1.0
-        self.best_epoch = -1
+        
+        if self.config.local_rank == 0:
+            self.best_metrics = Box({
+                "acer": BestMetric(1.0, -1),
+                "f3": BestMetric(0.0, -1),
+                "f1": BestMetric(0.0, -1)
+            })
         
         self.metrics_counter = MetricsCounter()
         
@@ -95,7 +101,7 @@ class Trainer(BaseTrainer):
         self.network.train()
         self.train_loss_metric.reset(epoch)
         self.train_acc_metric.reset(epoch)
-        max_num_batches = len(self.train_loader)
+        max_num_batches = len(self.train_loader) // self.config.world_size
         
         iterator = enumerate(self.train_loader)
         if self.config.local_rank == 0:
@@ -172,6 +178,45 @@ class Trainer(BaseTrainer):
         for param_group in self.optimizer.param_groups:
             current_lr = param_group['lr']
         return current_lr
+    
+    def update_best_metrics(self, val_metrics: Dict[str, ClassificationMetrics], epoch: int) -> None:
+        if self.config.local_rank == 0:
+            if float(val_metrics["total"].acer) < self.best_metrics.acer():
+                report(f"Validation ACER improved from {self.best_metrics.acer()*100:.4f}% to {val_metrics['total'].acer*100:.4f}%")
+                self.best_metrics.acer = BestMetric(val_metrics["total"].acer, epoch)
+            if float(val_metrics["total"].f3) > self.best_metrics.f3():
+                report(f"Validation F3 improved from {self.best_metrics.f3()*100:.4f}% to {val_metrics['total'].f3*100:.4f}%")
+                self.best_metrics.f3 = BestMetric(val_metrics["total"].f3, epoch)
+            if float(val_metrics["total"].f1) > self.best_metrics.f1():
+                report(f"Validation F1 improved from {self.best_metrics.f1()*100:.4f}% to {val_metrics['total'].f1*100:.4f}%")
+                self.best_metrics.f1 = BestMetric(val_metrics["total"].f1, epoch)
+
+
+    def log_val_metrics_csv(self, val_metrics: ClassificationMetrics, epoch: int):
+        if self.config.local_rank != 0:
+            return
+        csv_log_file_path = Path(self.config.log_dir, "val_metrics.csv")
+        if not csv_log_file_path.is_file():
+            header = ["Epoch", "F3↑", "F1↑", "ACER↑", "Precision↑", "Recall↑", "Specificity↑", "APCER↑", "BPCER↑", "threshold"]
+            with open(csv_log_file_path, "a") as f:
+                writer = csv.writer(f)
+                writer.writerow(header)
+
+        row = [
+            epoch,
+            f"{val_metrics.f3:.15f}",
+            f"{val_metrics.f1:.15f}",
+            f"{val_metrics.acer:.15f}",
+            f"{val_metrics.precision:.15f}",
+            f"{val_metrics.recall:.15f}",
+            f"{val_metrics.specificity:.15f}",
+            f"{val_metrics.apcer:.15f}",
+            f"{val_metrics.bpcer:.15f}",
+            f"{val_metrics.threshold:.15f}"]
+
+        with open(csv_log_file_path, "a") as f:
+                writer = csv.writer(f)
+                writer.writerow(row)
 
             
     def train(self):
@@ -179,10 +224,8 @@ class Trainer(BaseTrainer):
             epoch = -1
             val_metrics = self.validate(epoch)
             if self.config.local_rank == 0:
-                if val_metrics["total"].acer < self.best_val_acer:
-                    report(f"Validation ACER improved from {self.best_val_acer*100:.4f}% to {val_metrics['total'].acer*100:.4f}%")
-                    self.best_val_acer = val_metrics["total"].acer
-                    self.best_epoch = epoch
+                self.log_val_metrics_csv(val_metrics=val_metrics["total"], epoch=-1)
+            self.update_best_metrics(val_metrics, epoch)
         if dist.is_initialized():
             dist.barrier()
         
@@ -203,17 +246,16 @@ class Trainer(BaseTrainer):
                 dist.barrier()
             val_metrics = self.validate(epoch)
             if self.config.world_rank == 0:
-                if val_metrics["total"].acer < self.best_val_acer:
-                    report(f"Validation ACER improved from {self.best_val_acer*100:.2f}% to {val_metrics['total'].acer*100:.2f}%")
-                    self.best_val_acer = val_metrics["total"].acer
-                    self.best_epoch = epoch
-                
+                self.update_best_metrics(val_metrics, epoch)
+                self.log_val_metrics_csv(val_metrics=val_metrics["total"], epoch=-1)
                 self.save_model(epoch, val_metrics["total"])
                 epoch_time = time.time() - epoch_start_time
                 self.epoch_time.update(epoch_time)
                 epoch_end_message = (
                     f"Epoch {epoch} time = {int(self.epoch_time.val)} seconds",
-                    f"Best ACER = {self.best_val_acer*100:.4f}% at epoch {self.best_epoch}"
+                    f"Best F3 = {self.best_metrics.f3()*100:.4f}% at epoch {self.best_metrics.f3.epoch}",
+                    f"Best F1 = {self.best_metrics.f1()*100:.4f}% at epoch {self.best_metrics.f1.epoch}",
+                    f"Best ACER = {self.best_metrics.acer()*100:.4f}% at epoch {self.best_metrics.acer.epoch}"
                     )
                 report(epoch_end_message, use_telegram=self.config.telegram_reports)
     
@@ -229,7 +271,7 @@ class Trainer(BaseTrainer):
 
         return (int(telapsed), int(lefttime), finishtime)
             
-    def validate(self, epoch) -> Dict[str, ClassificationMetrics]: # TODO: make it work with multiple GPUs
+    def validate(self, epoch) -> Dict[str, ClassificationMetrics]:
         self.network.eval()
         # self.val_loss_metric.reset(epoch)
         # self.val_acc_metric.reset(epoch)

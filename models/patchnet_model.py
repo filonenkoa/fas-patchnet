@@ -34,3 +34,10 @@ class PatchnetModel(BaseModel):
     
     def predict(self, descriptor: Tensor) -> Tensor:
         return F.softmax(self.patch_loss.amsm_loss.s * self.patch_loss.amsm_loss.fc(descriptor), dim=1)
+    
+    @property
+    def can_reparameterize(self) -> bool:
+        return self.backbone.can_reparameterize
+
+    def reparameterize(self) -> Module:
+        self.backbone = self.backbone.reparameterize()

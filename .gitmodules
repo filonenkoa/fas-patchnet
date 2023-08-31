@@ -1,3 +1,6 @@
 [submodule "modules/efficientformer"]
 	path = modules/efficientformer
 	url = https://github.com/snap-research/EfficientFormer.git
+[submodule "modules/apple_fastvit"]
+	path = modules/apple_fastvit
+	url = https://github.com/apple/ml-fastvit.git

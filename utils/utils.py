@@ -1,4 +1,6 @@
+import copy
 from pathlib import Path
+import time
 from typing import List
 from box import Box
 import torch.nn.functional as F
@@ -7,6 +9,7 @@ from scipy.interpolate import interp1d
 from sklearn.metrics import roc_curve
 import torch
 import torch.nn as nn
+from tqdm import tqdm
 import yaml
 from torch import optim
 import torch.distributed as dist
@@ -112,3 +115,49 @@ def get_all_file_paths(path: Path, extensions=[".jpg", ".png", ".jpeg", ".bmp"])
         files = list(path.rglob(f"*{extension}"))
         files_paths.extend(files)
     return files_paths
+
+
+def replace_file_line(filename: str | Path, old_string: str, new_string: str):
+    "Adopted from https://stackoverflow.com/questions/4128144/replace-string-within-file-contents"
+    # Safely read the input filename using 'with'
+    with open(filename) as f:
+        s = f.read()
+        if old_string not in s:
+            print('"{old_string}" not found in {filename}.'.format(**locals()))
+            return
+
+    # Safely write the changed content, if found in the file
+    with open(filename, 'w') as f:
+        print('Changing "{old_string}" to "{new_string}" in {filename}'.format(**locals()))
+        s = s.replace(old_string, new_string)
+        f.write(s)
+        
+        
+def test_inference_speed(input_model, device: str | torch.device = "cpu", input_size: int = 224, iterations: int = 1000):
+    # cuDnn configurations
+    actual_cuddn_benchmark = torch.backends.cudnn.benchmark
+    actual_cudnn_deterministic = torch.backends.cudnn.deterministic
+    
+    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.deterministic = True
+
+    model = copy.deepcopy(input_model).to(device)
+
+    model.eval()
+
+    time_list = []
+    for i in tqdm(range(iterations+1), desc="Testing inference time"):
+        random_input = torch.randn(1,3,input_size,input_size).to(device)
+        torch.cuda.synchronize()
+        tic = time.perf_counter()
+        model(random_input)
+        torch.cuda.synchronize()
+        # the first iteration time cost much higher, so exclude the first iteration
+        #print(time.time()-tic)
+        time_list.append(time.perf_counter()-tic)
+    time_list = time_list[1:]
+    
+    torch.backends.cudnn.benchmark = actual_cuddn_benchmark
+    torch.backends.cudnn.deterministic = actual_cudnn_deterministic
+    
+    return sum(time_list)/10000

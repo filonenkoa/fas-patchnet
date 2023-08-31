@@ -4,4 +4,5 @@ logs
 __pycache__
 
 *.pth
+*.pth.tar
 .env

@@ -18,7 +18,11 @@ After carefully examining the [original repository](https://github.com/doantient
 - [x] Split validation into miltiple GPUs
 - [x] Balanced sampler suitable for DDP
 - [x] Conversion to ONNX
+- [x] Reparametrization efficiency evaluation for supported models
 
+## Supported backbones
+- [x] EfficientFormerV2
+- [x] FastViT
 
 ## Installation
 ```bash
