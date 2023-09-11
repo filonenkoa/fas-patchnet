@@ -61,11 +61,16 @@ class Trainer(BaseTrainer):
         
         self.total_val_sets = len(self.config.dataset.val_set)
         
+    def choose_model_module(self, model: Module) -> Module:
+        if dist.is_initialized() and self.config.world_size > 1:
+            model = self.network.module
+        else:
+            model = self.network
+        return model
+        
     def save_model(self, epoch, val_metrics: ClassificationMetrics):
         file_name = Path(self.config.log_dir, f"{epoch:04d}_{self.config.model.base}_{val_metrics.acer:.4f}.pth")
-        
-        model = self.network.module if dist.is_initialized() else self.network
-
+        model = self.choose_model_module(self.network)
         state = {
             'epoch': epoch,
             'model': model.state_dict(),
@@ -111,7 +116,7 @@ class Trainer(BaseTrainer):
             if self.lr_scheduler is not None and self.is_batch_scheduler:
                 self.lr_scheduler.step(epoch + (batch_index / max_num_batches))
             img1, img2, label = img1.to(self.device), img2.to(self.device), label.to(self.device)
-            model = self.network.module if dist.is_initialized() else self.network
+            model = self.choose_model_module(self.network)
             feature1 = model.get_descriptors(img1)
             feature2 = model.get_descriptors(img2)
             self.optimizer.zero_grad()
@@ -294,7 +299,7 @@ class Trainer(BaseTrainer):
                 for batch_index, (img1, label) in enumerate(val_loader):
                     
                     img1, label = img1.to(self.device), label.to(self.device)
-                    model = self.network.module if dist.is_initialized() else self.network
+                    model = self.choose_model_module(self.network)
                     feature1 = model.get_descriptors(img1)
                     score1 = model.predict(feature1)
                     label_squeezed = label.squeeze().type(torch.int8)
