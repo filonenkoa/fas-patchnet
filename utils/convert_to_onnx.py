@@ -77,7 +77,9 @@ if __name__ == "__main__":
     config.world_size = 1
     config.model.pretrained = False
     config.device = "cpu"
+    config.test_inference_speed = True
     model = build_network(config, state_dict)
+    
     if model.can_reparameterize:
         logger.info("Performing reparameterization")
         model.reparameterize()
@@ -89,6 +91,6 @@ if __name__ == "__main__":
     
     onnx_path = Path(args.checkpoint).parent / Path(f"{Path(args.checkpoint).stem}_dyn.onnx")
     logger.info("Converting with dynamic batch size")
-    convert_to_onnx(config, onnx_path, batch_size=2)
+    convert_to_onnx(config, onnx_path, batch_size=4)
 
     logger.info(f"ONNX conversion done. Model is saved to {onnx_path}")
