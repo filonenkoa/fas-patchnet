@@ -15,7 +15,7 @@ from loguru import logger
 
 sys.path.append(Path(__file__).absolute().parent.parent.as_posix())
 from models import build_network, load_checkpoint
-from utils import read_cfg
+from utils.misc import read_cfg
 
 
 def convert_to_onnx(config, onnx_path: Path, batch_size: int = 1):   
@@ -45,7 +45,7 @@ def convert_to_onnx(config, onnx_path: Path, batch_size: int = 1):
         args=batch_pt,
         f=onnx_path.as_posix(),
         export_params=True,
-        opset_version=14,
+        opset_version=17,
         do_constant_folding=True,
         input_names=['input'],
         output_names=['spoof'],
@@ -65,7 +65,7 @@ def to_numpy(tensor):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='PatchNet, convet to ONNX')
+    parser = argparse.ArgumentParser(description='PatchNet, convert to ONNX')
     parser.add_argument('--config', type=str, help='Path to the configuration (.yaml) file')
     parser.add_argument('--checkpoint', type=str, help='Checkpoint (.pth) path')
     args = parser.parse_args()
@@ -78,8 +78,10 @@ if __name__ == "__main__":
     config.model.pretrained = False
     config.device = "cpu"
     model = build_network(config, state_dict)
+    if model.can_reparameterize:
+        logger.info("Performing reparameterization")
+        model.reparameterize()
     model.eval()
-    
     
     onnx_path = Path(args.checkpoint).parent / Path(f"{Path(args.checkpoint).stem}_b1.onnx")
     logger.info("Converting with batch size 1")
@@ -87,7 +89,6 @@ if __name__ == "__main__":
     
     onnx_path = Path(args.checkpoint).parent / Path(f"{Path(args.checkpoint).stem}_dyn.onnx")
     logger.info("Converting with dynamic batch size")
-    convert_to_onnx(config, onnx_path, batch_size=4)
-    
-    
-    logger.info("Done")
+    convert_to_onnx(config, onnx_path, batch_size=2)
+
+    logger.info(f"ONNX conversion done. Model is saved to {onnx_path}")
