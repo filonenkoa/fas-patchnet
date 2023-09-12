@@ -15,7 +15,7 @@ from tqdm.auto import tqdm
 sys.path.append(Path(__file__).resolve().parent.as_posix())
 sys.path.append(Path(__file__).resolve().parent.parent.as_posix())
 from preprocessor import PreprocessorBoxExpansion
-from utils import get_all_file_paths
+from utils.misc import get_all_file_paths
 from containers import Rect2i
 
 

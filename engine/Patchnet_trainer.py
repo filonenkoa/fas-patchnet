@@ -22,7 +22,7 @@ sys.path.append(Path(__file__).resolve().parents[1].as_posix())
 
 from metrics.metrics_counter import MetricsCounter
 from reporting import report
-from utils.utils import calc_acc
+from utils.misc import calc_acc
 
 
 class Trainer(BaseTrainer):

@@ -10,15 +10,12 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from functools import partial
 
 from pathlib import Path
-
-from models.patchnet_model import PatchnetModel
-from reporting import Severity, report
-from utils.utils import test_inference_speed
-sys.path.append(Path(__file__).resolve().parent.as_posix())
 sys.path.append(Path(__file__).resolve().parents[1].as_posix())
 
-from metrics.losses import PatchLoss
 from models.base_model import BaseModel
+from models.patchnet_model import PatchnetModel
+from reporting import Severity, report
+from utils.misc import test_inference_speed
 
 def models_weights_difference_ratio(model_1: torch.nn.Module, model_2: torch.nn.Module) -> float:
     models_differ = 0
@@ -38,6 +35,7 @@ def models_weights_difference_ratio(model_1: torch.nn.Module, model_2: torch.nn.
 
 
 def get_backbone(config: Box) -> torch.nn.Module:
+    sys.path.append(Path(__file__).resolve().parent.as_posix())
     if config.model.base == "cdcn":
         from CDCNs import FeatureExtractor as Backbone
     elif config.model.base == "convnext_tiny":
@@ -103,8 +101,9 @@ def build_network(config: Box, state_dict: dict) -> PatchnetModel:
             report(f"🧠 Model parameters: {params/1_000_000:.3f} M")
             report(f"💻 Model complexity: {macs/2_000_000_000:.3f} GMACs")
             
-            raw_inference_speed = test_inference_speed(test_model, config.device, config.dataset.crop_size) * 1000
-            report(f"Average inference time the original model: {raw_inference_speed:.4f} ms")
+            if config.test_inference_speed:
+                raw_inference_speed = test_inference_speed(test_model, config.device, config.dataset.crop_size) * 1000
+                report(f"Average inference time the original model: {raw_inference_speed:.4f} ms")
         
             
             if test_model.can_reparameterize:
@@ -123,13 +122,13 @@ def build_network(config: Box, state_dict: dict) -> PatchnetModel:
                 same_output = np.allclose(raw_output[0], reparameterized_output[0], atol=0.001)
                 if not same_output:
                     report("Reparameterized model produces different outputs", Severity.WARN)
-                    
-                rep_inference_speed = test_inference_speed(rep_model, config.device, config.dataset.crop_size) * 1000
+                if config.test_inference_speed:    
+                    rep_inference_speed = test_inference_speed(rep_model, config.device, config.dataset.crop_size) * 1000
+                    report(f"Average inference time for original and reparameterized models: {raw_inference_speed:.4f} and {rep_inference_speed:.4f} ms")
                 
                 del rep_model
                 report(f"🧠 Model parameters: {params/1_000_000:.3f} M  after reparameterization")
-                report(f"💻 Model complexity: {macs/2_000_000_000:.3f} GMACs after reparameterization")    
-                report(f"Average inference time for original and reparameterized models: {raw_inference_speed:.4f} and {rep_inference_speed:.4f} ms")
+                report(f"💻 Model complexity: {macs/2_000_000_000:.3f} GMACs after reparameterization")
         
     if state_dict.get("model") is not None:
         model_raw = copy.deepcopy(model)

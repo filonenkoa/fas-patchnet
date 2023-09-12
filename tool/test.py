@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import sys
 import cv2
 import numpy as np
@@ -15,10 +16,10 @@ from torchvision import transforms, datasets
 ROOT = os.getcwd()
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
-
+sys.path.append(Path(__file__).absolute().parent.parent.as_posix())
 from metrics.losses import PatchLoss
 from dataset.FAS_dataset import FASDataset
-from utils.utils import read_cfg, build_network, get_device, frame_count
+from utils.misc import read_cfg, build_network, get_device, frame_count
 
 if __name__ == '__main__':
     cfg = read_cfg(cfg_file='config/config.yaml')

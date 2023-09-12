@@ -71,7 +71,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=4 tool/train.py --config confi
 
 
 ### Testing
-`This step has not been remade by me yet.`\
+`This step has not been remade by me yet. Your conrtibution is welcome.`\
 Go to tool/test.py and fix saved_name to your path to checkpoint \
 Run
 ```bash

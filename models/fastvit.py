@@ -14,7 +14,7 @@ import torch.distributed as dist
 root_path = dn(dn(os.path.abspath(__file__)))
 sys.path.append(root_path)
 from reporting import Severity, report
-from utils.utils import replace_file_line
+from utils.misc import replace_file_line
 from base_model import BaseModel
 from torch.nn import Module
 
