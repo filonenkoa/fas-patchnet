@@ -150,7 +150,7 @@ def test_inference_speed(input_model, device: str | torch.device = "cpu", input_
         random_input = torch.randn(1,3,input_size,input_size).to(device)
         torch.cuda.synchronize()
         tic = time.perf_counter()
-        model(random_input)
+        out = model(random_input)
         torch.cuda.synchronize()
         # the first iteration time cost much higher, so exclude the first iteration
         #print(time.time()-tic)
@@ -160,4 +160,4 @@ def test_inference_speed(input_model, device: str | torch.device = "cpu", input_
     torch.backends.cudnn.benchmark = actual_cuddn_benchmark
     torch.backends.cudnn.deterministic = actual_cudnn_deterministic
     
-    return sum(time_list)/10000
+    return sum(time_list)/iterations
