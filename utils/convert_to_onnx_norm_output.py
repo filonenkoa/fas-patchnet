@@ -37,7 +37,7 @@ class ModelWithRescaler(Module):
         # self.patchnet_model = patchnet_model
         self.patchnet_model.use_softmax = False
         # self.stats = stats
-        self.register_buffer("min_val", torch.tensor([0, 0], dtype=torch.float32))
+        self.register_buffer("min_val", torch.tensor([stats.min_spoof, stats.min_live], dtype=torch.float32))
         if use_95_percentile:
             max_val = torch.tensor([stats.percentile95_spoof, stats.percentile95_live], device=device, dtype=torch.float32)
         else:
@@ -106,22 +106,25 @@ def get_predictions_minmax(path: Path) -> Box:
     spoof_predictions = predictions[:, 0]
     live_predictions = predictions[:, 1]
     
-    min_spoof = np.min(spoof_predictions)
-    min_live = np.min(live_predictions)
+    # min_spoof = np.min(spoof_predictions)
+    # min_live = np.min(live_predictions)
     
-    max_spoof = np.max(spoof_predictions)
-    max_live = np.max(live_predictions)
+    # max_spoof = np.max(spoof_predictions)
+    # max_live = np.max(live_predictions)
     
-    percentile95_spoof = np.percentile(spoof_predictions, 95)
-    percentile95_live = np.percentile(live_predictions, 95)
+    # percentile_spoof_80 = np.percentile(spoof_predictions, 80)
+    # percentile_live = np.percentile(live_predictions, 80)
+    
+    # percentile_spoof = np.percentile(spoof_predictions, 20)
+    # percentile_live = np.percentile(live_predictions, 20)
     
     result = Box({
-        "min_spoof": min_spoof,
-        "min_live": min_live,
-        "max_spoof": max_spoof,
-        "max_live": max_live,
-        "percentile95_spoof": percentile95_spoof,
-        "percentile95_live": percentile95_live
+        "min_spoof": np.percentile(spoof_predictions, 2),
+        "min_live": np.percentile(live_predictions, 2),
+        "max_spoof": np.percentile(spoof_predictions, 98),
+        "max_live": np.percentile(live_predictions, 98),
+        # "percentile95_spoof": percentile95_spoof,
+        # "percentile95_live": percentile95_live
         })
     
     return result
@@ -173,7 +176,7 @@ if __name__ == "__main__":
     minmax = get_predictions_minmax(outputs_path)
     logger.info(minmax)
     # torch.cuda.set_device("cpu")
-    norm_model = ModelWithRescaler(model, minmax, config.device, True).to(config.device)
+    norm_model = ModelWithRescaler(model, minmax, config.device, False).to(config.device)
     norm_model.eval()
     img1, _ = datasets[0]
     img2, _ = datasets[len(datasets)-1]
