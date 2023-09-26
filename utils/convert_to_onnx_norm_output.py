@@ -56,6 +56,7 @@ def get_config() -> Box:
     parser = argparse.ArgumentParser(description='Face anti-spoofing training: PatchNet. Output re-normalization.')
     parser.add_argument('--config', type=str, help='Name of the configuration (.yaml) file')
     parser.add_argument('--checkpoint', type=str, help='Path to the checkpoint file')
+    parser.add_argument('--precomputed_predictions', type=str, default=None, help='Path to the precomputed outputs file')
     parser.add_argument('--datasets', nargs='+', help='Datasets used to compute statistics', required=True)
     parser.add_argument('-b', '--batch_size', type=int, default=1, help='Batch size')
     parser.add_argument('-n', '--num_workers', type=int, default=1, help='Number of CPU workers for the data loader')
@@ -70,26 +71,27 @@ def get_config() -> Box:
     config.dataset.val_set = args.datasets
     config.batch_size = args.batch_size
     config.dataset.num_workers = args.num_workers
+    config.precomputed_predictions_path = args.precomputed_predictions
     
     return config
 
 
-def get_outputs(model: PatchnetModel, data_loader: DataLoader, log_dir: Path, device: torch.device) -> Path:
+def get_outputs(model: PatchnetModel, data_loader: DataLoader, log_dir: Path, device: torch.device) -> tuple:
     predictions_file = Path(log_dir, "predictions.npy")
     model.eval()
     model.use_softmax = False
     predictions = []
 
         
-    for (img1, label) in tqdm(data_loader, desc="Getting predictions", total=len(data_loader)):
-        img1, label = img1.to(device), label.to(device)
+    for (img1, _) in tqdm(data_loader, desc="Getting predictions", total=len(data_loader)):
+        img1 = img1.to(device)
         score = model(img1)
         predictions.append(score.cpu().detach().numpy())
     
     logger.info(f"Inference is done. Saving outputs to {predictions_file.as_posix()}")
     predictions = np.concatenate(predictions, axis=0)
     np.save(predictions_file.as_posix(), predictions)
-    return predictions_file, img1, label
+    return predictions_file
 
 
 def get_predictions_minmax(path: Path) -> Box:
@@ -159,7 +161,13 @@ if __name__ == "__main__":
     model = build_network(config, state_dict)
     model.to(config.device)
     
-    outputs_path, img, labels = get_outputs(model, data_loader, config.log_dir, config.device)
+    if config.precomputed_predictions_path is None:
+        outputs_path = get_outputs(model, data_loader, config.log_dir, config.device)
+    else:
+        outputs_path = Path(config.precomputed_predictions_path)
+        assert outputs_path.is_file()
+        
+    assert outputs_path
     logger.info(f"Loading predictions from {outputs_path}")
     
     minmax = get_predictions_minmax(outputs_path)
@@ -167,6 +175,9 @@ if __name__ == "__main__":
     # torch.cuda.set_device("cpu")
     norm_model = ModelWithRescaler(model, minmax, config.device, True).to(config.device)
     norm_model.eval()
+    img1, _ = datasets[0]
+    img2, _ = datasets[len(datasets)-1]
+    img = torch.tensor(np.stack([img1, img2]), device=config.device)
     norm_output = norm_model(img)
 
     
