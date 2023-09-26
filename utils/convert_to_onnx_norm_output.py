@@ -41,7 +41,7 @@ class ModelWithRescaler(Module):
         if use_95_percentile:
             max_val = torch.tensor([stats.percentile95_spoof, stats.percentile95_live], device=device, dtype=torch.float32)
         else:
-            max_val = torch.tensor([self.max_spoof, self.max_live], device=device, dtype=torch.float32)
+            max_val = torch.tensor([stats.max_spoof, stats.max_live], device=device, dtype=torch.float32)
         self.register_buffer("max_val", max_val)
         
     def forward(self, x):
