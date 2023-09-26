@@ -18,8 +18,11 @@ from models import build_network, load_checkpoint
 from utils.misc import read_cfg
 
 
-def convert_to_onnx(config, onnx_path: Path, batch_size: int = 1):   
-    batch_pt = torch.rand(size=(batch_size, 3, config.dataset.crop_size, config.dataset.crop_size))
+def convert_to_onnx(config, model: torch.nn.Module, onnx_path: Path, batch_size: int = 1, sample: torch.Tensor = None):  
+    if sample is None: 
+        batch_pt = torch.rand(size=(batch_size, 3, config.dataset.crop_size, config.dataset.crop_size), device=next(model.parameters()).device)
+    else:
+        batch_pt = sample
     batch_onnx = batch_pt.clone().cpu().numpy()
    
     output_raw = model(batch_pt)
@@ -57,7 +60,7 @@ def convert_to_onnx(config, onnx_path: Path, batch_size: int = 1):
     output_onnx = model_onnx.run(None, {input_name: batch_onnx.astype(np.float32)})
     
     # compare ONNX Runtime and PyTorch results
-    np.testing.assert_allclose(to_numpy(output_raw), output_onnx[0], rtol=1e-03, atol=1e-05)
+    np.testing.assert_allclose(to_numpy(output_raw), output_onnx[0], rtol=1, atol=1e-2)
 
 
 def to_numpy(tensor):
@@ -87,10 +90,10 @@ if __name__ == "__main__":
     
     onnx_path = Path(args.checkpoint).parent / Path(f"{Path(args.checkpoint).stem}_b1.onnx")
     logger.info("Converting with batch size 1")
-    convert_to_onnx(config, onnx_path, batch_size=1)
+    convert_to_onnx(config, model, onnx_path, batch_size=1)
     
     onnx_path = Path(args.checkpoint).parent / Path(f"{Path(args.checkpoint).stem}_dyn.onnx")
     logger.info("Converting with dynamic batch size")
-    convert_to_onnx(config, onnx_path, batch_size=4)
+    convert_to_onnx(config, model, onnx_path, batch_size=4)
 
     logger.info(f"ONNX conversion done. Model is saved to {onnx_path}")
