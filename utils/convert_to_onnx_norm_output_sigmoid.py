@@ -29,43 +29,17 @@ from utils.convert_to_onnx import convert_to_onnx
 
 
 class ModelWithRescalerSigmoid(Module):
-    def __init__(
-        self,
-        patchnet_model: PatchnetModel,
-        stats: Box,
-        device: torch.device,
-        use_95_percentile: bool = True,
-        scale = 0.07
-    ):
+    def __init__(self, patchnet_model: PatchnetModel, device: torch.device, scale=0.07):
         super().__init__()
         self.register_module("patchnet_model", patchnet_model.to(device))
         self.scale = scale
-        # self.patchnet_model = patchnet_model
         self.patchnet_model.use_softmax = False
-        # self.stats = stats
-        
-        # if use_95_percentile:
-        #     max_val = torch.tensor(
-        #         [stats.percentile95_spoof, stats.percentile95_live],
-        #         device=device,
-        #         dtype=torch.float32,
-        #     )
-        # else:
-        #     max_val = torch.tensor(
-        #         [self.max_spoof, self.max_live], device=device, dtype=torch.float32
-        #     )
-        #     min_val = torch.tensor(
-        #         [self.min_spoof, self.min_live], device=device, dtype=torch.float32
-        #     )
-        # self.register_buffer("max_val", max_val)
-        # self.register_buffer("min_val", min_val)
 
     def forward(self, x):
         x = self.patchnet_model(x)
         x = x * self.scale
         x = torch.nn.functional.sigmoid(x)
         return x
-
 
 
 def get_config() -> Box:
@@ -107,7 +81,9 @@ def get_config() -> Box:
     config.dataset.val_set = args.datasets
     config.batch_size = args.batch_size
     config.dataset.num_workers = args.num_workers
-    config.precomputed_outputs = args.precomputed_outputs if args.precomputed_outputs != "" else None
+    config.precomputed_outputs = (
+        args.precomputed_outputs if args.precomputed_outputs != "" else None
+    )
 
     return config
 
@@ -133,44 +109,9 @@ def get_outputs(
     return predictions_file
 
 
-def get_predictions_minmax(path: Path) -> Box:
-    try:
-        predictions = np.load(path.as_posix())
-    except Exception as ex:
-        logger.error(f"Could not load {path}, {ex}")
-        return None
-
-    logger.info("Computing min and max values")
-
-    spoof_predictions = predictions[:, 0]
-    live_predictions = predictions[:, 1]
-
-    min_spoof = np.min(spoof_predictions)
-    min_live = np.min(live_predictions)
-
-    max_spoof = np.max(spoof_predictions)
-    max_live = np.max(live_predictions)
-
-    percentile95_spoof = np.percentile(spoof_predictions, 95)
-    percentile95_live = np.percentile(live_predictions, 95)
-
-    result = Box(
-        {
-            "min_spoof": min_spoof,
-            "min_live": min_live,
-            "max_spoof": max_spoof,
-            "max_live": max_live,
-            "percentile95_spoof": percentile95_spoof,
-            "percentile95_live": percentile95_live,
-        }
-    )
-
-    return result
-
-
 if __name__ == "__main__":
     config = get_config()
-    
+
     config.log_root = config.log_dir
     current_datetime = datetime.datetime.now()
     config.log_dir = Path(
@@ -179,18 +120,13 @@ if __name__ == "__main__":
         f"{config.model.base}_{config.dataset.name}",
         str(current_datetime).replace(":", "-"),
     )
-    
+
     config.log_dir.mkdir(parents=True)
     logger.add(Path(config.log_dir, "log.log"))
     shutil.copy(config.config_path, Path(config.log_dir, "config.yaml"))
     config.device = torch.device("cuda")
-    
-    # torch.cuda.set_device(f"cuda:0")
 
     data_transforms = get_transforms(config, is_train=False)
-
-    # config.all_dataset_names = [FASDataset.path_to_name(p) for p in config.dataset.val_set]
-
     datasets = ConcatDatasetWithLabels(
         initialize_datasets(
             config.dataset.val_set, data_transforms, config.dataset.smoothing, False
@@ -225,10 +161,7 @@ if __name__ == "__main__":
 
     logger.info(f"Loading predictions from {outputs_path}")
 
-    minmax = get_predictions_minmax(outputs_path)
-    logger.info(minmax)
-    # torch.cuda.set_device("cpu")
-    norm_model = ModelWithRescalerSigmoid(model, minmax, config.device, False).to(config.device)
+    norm_model = ModelWithRescalerSigmoid(model, config.device).to(config.device)
     norm_model.eval()
     norm_output = norm_model(img)
 
