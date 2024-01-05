@@ -39,7 +39,7 @@ def compute_eer(labels, scores):
     """
     scores_lst = [val[labels[idx]].int() for idx, val in enumerate(scores)]
     fpr, tpr, thresholds = roc_curve(labels.tolist(), scores_lst, pos_label=1)
-    eer = brentq(lambda x : 1. - x - interp1d(fpr, tpr)(x), 0., 1.)
+    eer = brentq(lambda x: 1.0 - x - interp1d(fpr, tpr)(x), 0.0, 1.0)
     thresh = interp1d(fpr, thresholds)(eer)
     labels = labels.to("cuda")
     scores = scores.to("cuda")
@@ -54,17 +54,17 @@ def read_cfg(cfg_file: str) -> Box:
     Returns:
         (Box): configuration in Box dict wrapper
     """
-    with open(cfg_file, 'r') as rf:
+    with open(cfg_file, "r") as rf:
         cfg = yaml.safe_load(rf)
         return Box(cfg)
 
 
 def get_device(cfg):
     device = None
-    if cfg['device'] == 'cpu':
+    if cfg["device"] == "cpu":
         device = torch.device("cpu")
-    elif cfg['device'].startswith("cuda"):
-        device = torch.device(cfg['device'])
+    elif cfg["device"].startswith("cuda"):
+        device = torch.device(cfg["device"])
     else:
         raise NotImplementedError
     return device
@@ -92,10 +92,10 @@ def frame_count(video_path, manual=False):
             if not status:
                 break
             frames += 1
-        return frames 
+        return frames
 
     cap = cv2.VideoCapture(video_path)
-    # Slow, inefficient but 100% accurate method 
+    # Slow, inefficient but 100% accurate method
     if manual:
         frames = manual_count(cap)
     # Fast, efficient but inaccurate method
@@ -108,7 +108,9 @@ def frame_count(video_path, manual=False):
     return frames
 
 
-def get_all_file_paths(path: Path, extensions=[".jpg", ".png", ".jpeg", ".bmp"]) -> List[Path]:
+def get_all_file_paths(
+    path: Path, extensions=[".jpg", ".png", ".jpeg", ".bmp"]
+) -> List[Path]:
     path = path.expanduser()
     files_paths: List[Path] = []
     for extension in extensions:
@@ -127,17 +129,24 @@ def replace_file_line(filename: str | Path, old_string: str, new_string: str):
             return
 
     # Safely write the changed content, if found in the file
-    with open(filename, 'w') as f:
-        print('Changing "{old_string}" to "{new_string}" in {filename}'.format(**locals()))
+    with open(filename, "w") as f:
+        print(
+            'Changing "{old_string}" to "{new_string}" in {filename}'.format(**locals())
+        )
         s = s.replace(old_string, new_string)
         f.write(s)
-        
-        
-def test_inference_speed(input_model, device: str | torch.device = "cpu", input_size: int = 224, iterations: int = 1000):
+
+
+def test_inference_speed(
+    input_model,
+    device: str | torch.device = "cpu",
+    input_size: int = 224,
+    iterations: int = 1000,
+):
     # cuDnn configurations
     actual_cuddn_benchmark = torch.backends.cudnn.benchmark
     actual_cudnn_deterministic = torch.backends.cudnn.deterministic
-    
+
     torch.backends.cudnn.benchmark = True
     torch.backends.cudnn.deterministic = True
 
@@ -146,18 +155,18 @@ def test_inference_speed(input_model, device: str | torch.device = "cpu", input_
     model.eval()
 
     time_list = []
-    for i in tqdm(range(iterations+1), desc="Testing inference time"):
-        random_input = torch.randn(1,3,input_size,input_size).to(device)
+    for i in tqdm(range(iterations + 1), desc="Testing inference time"):
+        random_input = torch.randn(1, 3, input_size, input_size).to(device)
         torch.cuda.synchronize()
         tic = time.perf_counter()
         out = model(random_input)
         torch.cuda.synchronize()
         # the first iteration time cost much higher, so exclude the first iteration
-        #print(time.time()-tic)
-        time_list.append(time.perf_counter()-tic)
+        # print(time.time()-tic)
+        time_list.append(time.perf_counter() - tic)
     time_list = time_list[1:]
-    
+
     torch.backends.cudnn.benchmark = actual_cuddn_benchmark
     torch.backends.cudnn.deterministic = actual_cudnn_deterministic
-    
-    return sum(time_list)/iterations
+
+    return sum(time_list) / iterations

@@ -19,7 +19,21 @@ class PatchnetModel(BaseModel):
             m_s=self.config.loss.m_s,
             descriptor_size=self.config.model.descriptor_size
             )
-
+        self.__use_softmax = True
+        
+    @property
+    def use_softmax(self) -> bool:
+        return self.__use_softmax
+    
+    @use_softmax.setter
+    def use_softmax(self, state: bool) -> None:
+        if isinstance(state, int):
+            assert state >= 0 and state < 2
+            self.__use_softmax = bool(state)
+        else:
+            assert isinstance(state, bool)
+            self.__use_softmax = state
+        
     def forward(self, x: Tensor) -> Tensor:
         x = self.get_descriptors(x)
         x = self.predict(x)
@@ -33,7 +47,10 @@ class PatchnetModel(BaseModel):
         return loss
     
     def predict(self, descriptor: Tensor) -> Tensor:
-        return F.softmax(self.patch_loss.amsm_loss.s * self.patch_loss.amsm_loss.fc(descriptor), dim=-1)
+        if not self.__use_softmax:
+            return self.patch_loss.amsm_loss.fc(descriptor)
+        else:
+            return F.softmax(self.patch_loss.amsm_loss.s * self.patch_loss.amsm_loss.fc(descriptor), dim=-1)
     
     @property
     def can_reparameterize(self) -> bool:
