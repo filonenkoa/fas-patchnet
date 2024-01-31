@@ -12,7 +12,7 @@ from albumentations import (
 )
 
 
-def get_transforms(cfg: dict, is_train: bool) -> Compose:
+def get_transforms(cfg: dict, is_train: bool, ignore_normalization: bool = False) -> Compose:
     augs_file = Path("config", "augs", f"{cfg.dataset.augmentation}.json")
     with open(augs_file, 'r') as f:
         pars = json.load(f)
@@ -71,7 +71,8 @@ def get_transforms(cfg: dict, is_train: bool) -> Compose:
         aug_lst.append(RandomCrop(crop_size, crop_size, p=1))
     else:
         aug_lst.append(CenterCrop(crop_size, crop_size))
-    aug_lst.append(Normalize(mean=[0.406, 0.456, 0.485], std=[0.225, 0.224, 0.229]))  # BGR
+    if not ignore_normalization:
+        aug_lst.append(Normalize(mean=[0.406, 0.456, 0.485], std=[0.225, 0.224, 0.229]))  # BGR
     aug_lst.append(ToTensorV2())
     # aug_lst.append(ToFloat())
     return Compose(aug_lst)
